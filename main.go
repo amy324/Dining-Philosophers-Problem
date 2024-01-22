@@ -14,7 +14,7 @@ import (
 // each can forever continue to alternate between eating and thinking, assuming that no philosopher can know when others may want to eat or
 // think (an issue of incomplete information).
 
-//Struct store info about an individual philosophet
+//Struct store info about an individual philosopher
 type Philosopher struct {
 	name string
 	rightFork int
@@ -34,7 +34,7 @@ var philosophers = []Philosopher{
 var hunger = 3 //how many time each philosopher eats until they are full
 var eatTime = 1 * time.Second 
 var thinkTime = 3 * time.Second
-var sleepTime = 1 * time.Second //prevents program running too fast to read 
+var sleepTime = 1 * time.Second 
 
 func main() {
 
@@ -51,39 +51,66 @@ func main() {
 }
 
 func dine() {
+	eatTime = 0 * time.Second
+	sleepTime = 0 * time.Second
+	thinkTime = 0 * time.Second
+
 	wg := &sync.WaitGroup{}
 	wg.Add(len(philosophers))
 
 	seated := &sync.WaitGroup{}
 	seated.Add(len(philosophers))
 
-//Map of all 5 forks
-var forks = make(map[int]*sync.Mutex)
-for i := 0; i < len(philosophers); i++ {
-	forks[i] = &sync.Mutex{}
+	// Map of all 5 forks
+	var forks = make(map[int]*sync.Mutex)
+	for i := 0; i < len(philosophers); i++ {
+		forks[i] = &sync.Mutex{}
 	}
 
-//Meal starts
+	// Meal starts
 	for i := 0; i < len(philosophers); i++ {
 		// goroutine for the current philosopher
-		go diningProblem(wg, seated, philosophers[i], forks)
+		go diningProblem(philosophers[i], wg, forks, seated)
 	}
+
 	wg.Wait()
 }
 
-func diningProblem(wg, seated *sync.WaitGroup, philosopher Philosopher, forks map[int]*sync.Mutex) {
-    defer wg.Done()
+func diningProblem(philosopher Philosopher, wg *sync.WaitGroup, forks map[int]*sync.Mutex, seated *sync.WaitGroup) {
+	defer wg.Done()
 
-    // Access philosopher's properties using 'philosopher'
-    fmt.Printf("%s is thinking\n", philosopher.name)
+	// Seat the philosopher at the table
+	fmt.Printf("%s is seated at the table.\n", philosopher.name)
+	seated.Done()
+	seated.Wait()
 
-    // Logic for picking up forks and eating
+	// Eat 3 times
+	for i := hunger; i > 0; i-- {
 
-    // Example:
-    // fmt.Printf("%s is eating\n", philosopher.name)
-    // time.Sleep(eatTime)
-    // fmt.Printf("%s finished eating\n", philosopher.name)
+		if philosopher.leftFork > philosopher.rightFork {
+			forks[philosopher.rightFork].Lock()
+			fmt.Printf("\t%s takes the right fork.\n", philosopher.name)
+			forks[philosopher.leftFork].Lock()
+			fmt.Printf("\t%s takes the left fork.\n", philosopher.name)
+		} else {
+			forks[philosopher.leftFork].Lock()
+			fmt.Printf("\t%s takes the left fork.\n", philosopher.name)
+			forks[philosopher.rightFork].Lock()
+			fmt.Printf("\t%s takes the right fork.\n", philosopher.name)	
+		}
+		
 
-    seated.Done()  // Decrement the seated wait group
+		fmt.Printf("\t%s has both forks and has started eating.\n", philosopher.name)
+		time.Sleep(eatTime)
+
+		fmt.Printf("\t%s is thinking.\n", philosopher.name)
+		time.Sleep(thinkTime)
+
+		forks[philosopher.leftFork].Unlock()
+		forks[philosopher.rightFork].Unlock()
+
+		fmt.Printf("\t%s has put down the forks.\n", philosopher.name)
+	}
+	fmt.Println(philosopher.name, "is satisfied.")
+	fmt.Println(philosopher.name, "left the table.")
 }
-
